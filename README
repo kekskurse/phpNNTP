@@ -1,0 +1,21 @@
+This Class is Testet With http://www.wendzel.de/software/wendzelnntpd.html
+
+ToDo:
+* Error Handler
+* Add More Header Detais to a Post
+* Article Phrasen
+
+Version 0.1:
+* Connect
+* Login
+* Get Groups
+* Get Article
+* Post Article
+
+Use Like:
+include("nntp.class.php");
+$nntp = new nntp();
+$nntp->connect("SERVER");
+$nntp->autentifizierung("USERNAME", "PASSWORT");
+$arry = $nntp->getGroups();
+$arry = $nntp->getArticle($arry[0][0]);
