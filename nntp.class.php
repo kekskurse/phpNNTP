@@ -25,32 +25,6 @@ class nntp
 	{
 		fclose($this->conn);
 	}
-	public function getGroups()
-	{
-		fputs($this->conn, "LIST\r\n");
-		$zeile = fgets($this->conn);
-		$groups = array();
-		do
-		{
-			$zeile = fgets($this->conn);
-			if(substr($zeile,0,1)!=".")
-			{
-				$groups[] = explode(" ", $zeile);
-			}
-		} while(substr($zeile,0,1)!=".");
-		return $groups;
-	}
-	public function selectGroup($group)
-	{
-		fputs($this->conn, "GROUP ".$group."\r\n");
-		$zeile = fgets($this->conn);
-		//211 2 1 2 alt.wendzelnntpd.test group selected
-		if(substr($zeile, 0, 3)=="211")
-		{
-			return true;
-		}
-		return false;
-	}
 	public function autentifizierung($name, $password)
 	{
 		fputs($this->conn, "AUTHINFO USER ".$name."\r\n");
@@ -66,71 +40,130 @@ class nntp
 		}
 		return false;
 	}
-	public function getArticle($board, $start = 1, $ende = NULL)
+	public function listGroups()
 	{
-		$this->selectGroup($board);
-		if($ende == NULL)
+		fputs($this->conn, "LIST \r\n");
+		$zeile = fgets($this->conn);
+		if(substr($zeile, 0, 3)=="215")
 		{
-			$ende = $this->getHighst($board);
-		}
-		$messages = array();
-		echo ">ENDE:".$ende."\r\n";
-		for($i=$start; $i <= $ende; $i++)
-		{
-			fputs($this->conn, "article ".$i."\r\n");
 			$zeile = fgets($this->conn);
-			echo $zeile."\r\n";
-			if(substr($zeile, 0, 3)=="220")
+			$groups = array();
+			while($this->getAsci($zeile)!="461310")
 			{
-				$message="";
-				while(true)
-				{
-					$zeile = fgets($this->conn);
-					if(substr($zeile, 0, 1)==".")
-					{
-						break;
-					}
-					$message .= $zeile;
-				}
-				$messages[]=$message;
+				$groups[] = explode(" ", $zeile);
+				$zeile = fgets($this->conn);
 			}
-		}
-		return $messages;
-	}
-	private function getHighst($board)
-	{
-		$groups = $this->getGroups();
-		foreach($groups as $group)
-		{
-			if($group[0]==$board)
-			{
-				return $group[1];
-			}
+			return $groups;
 		}
 		return false;
 	}
-	public function post($board, $subject, $message, $from = "anonymus@nobody.de")
+	public function changeGroup($group)
 	{
-		//User-Agent
-		define('CRLF', chr(0x0D).chr(0x0A)); 
+		fputs($this->conn, "GROUP ".$group." \r\n");
+		$zeile = fgets($this->conn);
+		if(substr($zeile, 0, 3)=="211")
+		{
+			return true;
+		}
+		else {
+			//return substr($zeile, 0, 3);
+			return false;
+		}
+	}
+	public function getHead($id, $group = NULL)
+	{
+		if($group!=NULL)
+		{
+			if(!$this->changeGroup($group))
+			{
+				return false;
+			}
+		}
+		fputs($this->conn, "HEAD ".$id." \r\n");
+		$zeile = fgets($this->conn);
+		if(substr($zeile, 0, 3)!=221)
+		{
+			return false;
+		}
+		$zeile = fgets($this->conn);
+		while($this->getAsci($zeile)!="461310")
+		{
+			//$header .=$this->getAsci($zeile)."<br>";
+			$header[] = explode(":", substr($zeile,0,-2), 2);
+			$zeile = fgets($this->conn);
+		}
+		return $header;
+	}
+	public function getBody($id, $group = NULL)
+	{
+		if($group!=NULL)
+		{
+			if(!$this->changeGroup($group))
+			{
+				return false;
+			}
+		}
+		fputs($this->conn, "BODY ".$id." ".$this->getString("1310"));
+		$zeile = fgets($this->conn);
+		if(substr($zeile, 0, 3)!=222)
+		{
+			return false;
+		}
+		$zeile = fgets($this->conn);
+		$body = "";
+		while($this->getAsci($zeile)!="461310")
+		{
+			//$header .=$this->getAsci($zeile)."<br>";
+			$body .= substr($zeile,0,-2)."\r\n";
+			$zeile = fgets($this->conn);
+		}
+		return $body;
+	
+	}
+	public function post($board, $subject, $message, $from, $header = array())
+	{
 		fputs($this->conn, "post\r\n");
 		$zeile = fgets($this->conn);
-		if(substr($zeile,0,3)=="340")
+		if(!substr($zeile,0,3)=="340")
 		{
-			fputs($this->conn, "From: ".$from."\r\n");
-			fputs($this->conn, "Newsgroups: ".$board."\r\n");
-			fputs($this->conn, "Subject: ".$subject."\r\n");
-			fputs($this->conn, "User-Agent: phpNNTP by sspssp"."\r\n");
-			fputs($this->conn, "\r\n");
-			fputs($this->conn, $message."\r\n");
-			fputs($this->conn, CRLF.'.'.CRLF);
-			$zeile = fgets($this->conn);
-			if(substr($zeile, 0, 3)=="240")
-			{
-				return true;
-			}
+			return false;
+		}
+		fputs($this->conn, "From: ".$from.$this->getString("1310"));
+		fputs($this->conn, "Newsgroups: ".$board.$this->getString("1310"));
+		fputs($this->conn, "Subject: ".$subject.$this->getString("1310"));
+		fputs($this->conn, "User-Agent: phpNNTP by sspssp".$this->getString("1310"));
+		foreach($header as $name => $value)
+		{
+			fputs($this->conn, $name.": ".$value.$this->getString("1310"));
+		}
+		fputs($this->conn, $this->getString("1310"));
+		fputs($this->conn, $message);
+		fputs($this->conn, chr(0x0D).chr(0x0A).".".chr(0x0D).chr(0x0A));
+		$zeile = fgets($this->conn);
+		if(substr($zeile,0,3)==240)
+		{
+			return true;
 		}
 		return false;
+	}
+	
+	private function getAsci($zeile)
+	{
+		$ascii="";
+		for($i=0;$i<strlen($zeile);$i++)
+		{
+			$ascii.= ord(substr($zeile,$i,1));
+		}
+		return $ascii;
+	}
+		private function getString($zeile)
+	{
+		$ascii="";
+		for($i=0;$i<strlen($zeile);$i=$i+2)
+		{
+			$ascii.= chr(substr($zeile,$i,2));
+		}
+		return $ascii;
 	}
 }
 ?>
