@@ -4,7 +4,7 @@ class nntp {
 	private $error;
 	private $group;
 	public function connect($server, $port = 119, $timeout = 5) {
-		$this->conn = fsockopen($server, $port, &$error, &$description, $timeout);
+		$this->conn = fsockopen($server, $port, $timeout);
 		if(!$this->conn){
 			$this->error = $description;
 			return false;
@@ -55,6 +55,7 @@ class nntp {
 		return false;
 	}
 	public function getHead($id, $group = NULL){
+		trigger_error("Deprecated functioni 'getHead' called.", E_USER_NOTICE);
 		if($group!=NULL){
 			if(!$this->changeGroup($group)){
 				return false;
@@ -72,6 +73,27 @@ class nntp {
 		}
 		return $header;
 	}
+	public function getHeadDetails($id, $group = NULL){
+                if($group!=NULL){
+                        if(!$this->changeGroup($group)){
+                                return false;
+                        }
+                }
+                fputs($this->conn, "HEAD ".$id." \r\n");
+                $zeile = fgets($this->conn);
+                if(substr($zeile, 0, 3)!=221){
+                        return false;
+                }
+                $zeile = fgets($this->conn);
+		$headerDetails = array();
+                while($this->getAsci($zeile)!="461310"){
+                        $header = explode(":", substr($zeile,0,-2), 2);
+			$headerDetails[$header[0]]=trim($header[1]);
+                        $zeile = fgets($this->conn);
+                }
+                return $headerDetails;
+        }
+
 	public function getBody($id, $group = NULL){
 		if($group!=NULL){
 			if(!$this->changeGroup($group)){

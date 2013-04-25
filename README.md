@@ -19,7 +19,7 @@ Change Group:
 
 Get a Message Header:
 
-	$nntp->getHead($id); //Return an Array or false
+	$nntp->getHeadDetails($id); //Return an Array or false
 	$nntp->getHead($id, $group); //Return an Array or false
 
 Get a Message Body:
