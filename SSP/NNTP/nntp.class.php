@@ -1,4 +1,5 @@
 <?php
+namespace SSP\NNTP;
 class nntp {
 	private $conn;
 	private $error;
