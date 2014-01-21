@@ -4,7 +4,7 @@ This Class is Testet With http://www.wendzel.de/software/wendzelnntpd.html
 
 Connect to a Server:
 
-	$nntp = new nntp();
+	$nntp = new SSP\NNTP\NNTP();
 	$nntp->connect($server); //Return true or false
 	$nntp->autentifizierung($user, $pass); //Return true or false
 
