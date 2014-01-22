@@ -1,5 +1,6 @@
 {
     "name": "sspssp/nntp",
+    "description": "PHP class to read and write NNTP Posts",
     "type": "library",
     "license": "MIT",
     "authors": [
